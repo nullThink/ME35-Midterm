@@ -1,0 +1,56 @@
+clear all;
+
+% Get Points
+angleRanges = linspace(0, pi, 100);
+
+yPoints = sin(angleRanges) - 20;
+xPoints = (-2.5*cos(angleRanges))+2.5;
+
+yPoints(1, 101:200) = -20;
+xPoints(1, 101:200) = linspace(5, 0, 100);
+
+offsetZeros = zeros(1,200);
+trajectory = [offsetZeros' xPoints' yPoints'];
+
+% Build Robot Sim
+kneeLeg = rigidBody("kneeLeg");
+hipLeg = rigidBody("hipLeg");
+
+hipLeg.Joint = rigidBodyJoint("hipJoint", "revolute");
+kneeLeg.Joint = rigidBodyJoint("kneeJoint", "revolute");
+
+hipLeg.Joint.JointAxis = [1 0 0];
+kneeLeg.Joint.JointAxis = [1 0 0];
+
+arm = rigidBodyTree;
+setFixedTransform(hipLeg.Joint, trvec2tform([0 0 -7]));
+setFixedTransform(kneeLeg.Joint, trvec2tform([0 0 -13]));
+
+addBody(arm, hipLeg, "base")
+addBody(arm, kneeLeg, "hipLeg")
+show(arm)
+
+% Perform IK
+
+% Assuming joints rotate along X axis, and movement is along Y and Z axis
+
+iK = inverseKinematics('RigidBodyTree', arm);
+
+anglesHip = [];
+anglesKnee = [];
+
+for pointIndex = 1:length(trajectory)
+    transform = trvec2tform(trajectory(pointIndex, :));
+    
+    weight = [1 1 1 1 1 1];
+    initGuess = arm.homeConfiguration;
+    [configSol, solnInfo] = iK("kneeLeg", transform, weight, initGuess);
+    currentConfig = configSol;
+    anglesHip(pointIndex)= configSol(1).JointPosition;
+    anglesKnee(pointIndex)=configSol(2).JointPosition;
+end
+
+anglesHip * (180 / pi)
+anglesKnee * (180/pi)
+
+angles = [anglesHip' anglesKnee'];
